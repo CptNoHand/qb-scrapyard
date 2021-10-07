@@ -99,7 +99,8 @@ end
 function ScrapVehicle(vehicle)
 	isBusy = true
 
-	local scrapTime = math.random(24000, 32000)
+	local scrapTime = math.random(30000, 45000)
+	-- local scrapTime = 45000
 	local devideTime = scrapTime / 10
 
 	ScrapVehicleAnim(scrapTime)
@@ -119,27 +120,26 @@ function ScrapVehicle(vehicle)
 		isBusy = false
 		QBCore.Functions.Notify("Canceled", "error")
 	end)
-
-
-
-
+	SetVehicleEngineOn(vehicle,false,true)
 	for i=0,(scrapTime/1000) do
+		SetVehicleRadioEnabled(vehicle,false)
 		print("starting 1")
-		Citizen.Wait(100)
+		Citizen.Wait(math.random(450,1100))
 		if i <= 6 then
-			Citizen.Wait(1000)
-			SetVehicleDoorOpen(vehicle,i,true, false)
-			Citizen.Wait(1000)
+			
+			Citizen.Wait(math.random(450,1100))
+			SetVehicleDoorOpen(vehicle,i,false, false)
+			Citizen.Wait(math.random(450,1100))
 			SetVehicleDoorBroken(vehicle,i,true)
-
-		elseif i >6 and i <= 11 then
-			Citizen.Wait(1000)
+		elseif i > 6 and i <= 11 then
+			
+			Citizen.Wait(math.random(450,1100))
 			SetVehicleTyreBurst(vehicle,i-7,true,1000)
-			Citizen.Wait(750)
-		elseif i >11 then 
-
-			RemoveVehicleWindow(vehicle,i-12)	
-			Citizen.Wait(750)
+			Citizen.Wait(math.random(450,1100))
+		elseif i > 11 then 
+			
+			RemoveVehicleWindow(vehicle,i-12)
+			Citizen.Wait(math.random(450,1100))
 		end
 	end
 
