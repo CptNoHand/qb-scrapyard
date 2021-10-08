@@ -67,3 +67,26 @@ Config.Vehicles = {
     [39] = "rhapsody",
     [40] = "feltzer2",
 }
+
+
+		-- if IsVehicleDoorDamaged(vehicle,i) == true or IsVehicleTyreBurst(vehicle,i == true) or IsVehicleWindowIntact(vehicle,i) == false or IsVehicleDoorFullyOpen(vehicle,i) then
+		-- 	Citizen.Wait(100)
+		-- 	print("starting 2")
+		-- 	SetVehicleDoorOpen(vehicle,1,true, false)
+		-- 	Citizen.Wait(1000)
+		-- 	SetVehicleDoorBroken(vehicle,1,true)
+		-- 	Citizen.Wait(100)
+		-- 	if i >= 6 then
+		-- 		print("starting 3")
+		-- 		Citizen.Wait(200)
+		-- 		SetVehicleTyreBurst(vehicle,i-6,true,100)
+		-- 		Citizen.Wait(100)
+		-- 		if i >= 12 then
+		-- 			print("starting 4")
+		-- 			Citizen.Wait(100)
+		-- 			RemoveVehicleWindow(vehicle,i-12)	
+		-- 			Citizen.Wait(200)
+		-- 		end
+		-- 	end
+			
+		-- end
