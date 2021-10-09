@@ -13,6 +13,17 @@ AddEventHandler('qb-scrapyard:server:LoadVehicleList', function()
 end)
 
 
+RegisterServerEvent('qb-scrapyard:server:ItemScrapVehicle')
+AddEventHandler('qb-scrapyard:server:ItemScrapVehicle', function(item)
+    local src = source 
+    local Player = QBCore.Functions.GetPlayer(src)
+    
+    if item == "glass" then
+        Player.Functions.AddItem("glass", math.random(1, 3))
+        TriggerClientEvent('inventory:client:ItemBox', src, QBCore.Shared.Items["glass"], 'add')
+    end
+end)
+
 RegisterServerEvent('qb-scrapyard:server:ScrapVehicle')
 AddEventHandler('qb-scrapyard:server:ScrapVehicle', function(listKey)
     local src = source 

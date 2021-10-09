@@ -98,10 +98,30 @@ end
 
 function ScrapVehicle(vehicle)
 	isBusy = true
+	local retval --[[ boolean ]] =
+	IsVehicleTyreBurst(
+		vehicle --[[ Vehicle ]], 
+		0 --[[ integer ]], 
+		false --[[ boolean ]]
+	)
 
-	local scrapTime = math.random(40000, 45000)
+	local retval1 --[[ boolean ]] =
+	IsVehicleTyreBurst(
+		vehicle --[[ Vehicle ]], 
+		0 --[[ integer ]], 
+		true --[[ boolean ]]
+	)
 
-	local devideTime = ((scrapTime - 12) / 4)
+	local retval2 --[[ boolean ]] =
+	IsVehicleTyreBurst(
+		vehicle --[[ Vehicle ]], 
+		0 --[[ integer ]]
+	)
+
+	print(retval)
+	print(retval1)
+	print(retval2)
+	local scrapTime = math.random(32000, 42000)
 
 	ScrapVehicleAnim(scrapTime)
 	QBCore.Functions.Progressbar("scrap_vehicle", "Demolish Vehicle", scrapTime, false, true, {
@@ -111,7 +131,7 @@ function ScrapVehicle(vehicle)
 		disableCombat = true,
 	}, {}, {}, {}, function() -- Done
 		StopAnimTask(PlayerPedId(), "mp_car_bomb", "car_bomb_mechanic", 1.0)
-		TriggerServerEvent("qb-scrapyard:server:ScrapVehicle", GetVehicleKey(GetEntityModel(vehicle)))
+		-- TriggerServerEvent("qb-scrapyard:server:ScrapVehicle", GetVehticleKey(GetEntityModel(vehicle)))
 		SetEntityAsMissionEntity(vehicle, true, true)
 		DeleteVehicle(vehicle)
 		isBusy = false
@@ -121,28 +141,73 @@ function ScrapVehicle(vehicle)
 		QBCore.Functions.Notify("Canceled", "error")
 	end)
 
-	print(scrapTime)
-	print(scrapTime)
-	
 	SetVehicleEngineOn(vehicle,false,true)
-	for i=0,(scrapTime/1000) do
-		SetVehicleRadioEnabled(vehicle,false)
-		Citizen.Wait(math.random(800,1200))
-		if i <= 6 then
-			SetVehicleDoorOpen(vehicle,i,false, false)
-			Citizen.Wait(math.random(700,1200))
-			SetVehicleDoorBroken(vehicle,i,true)
-			Citizen.Wait(math.random(700,800))
-		elseif i > 6 and i <= 11 then
-			SetVehicleTyreBurst(vehicle,i-7,true,1000)
-			Citizen.Wait(math.random(700,800))
-		elseif i > 11 then 
-			
-			RemoveVehicleWindow(vehicle,i-12)
-			Citizen.Wait(math.random(700,800))
-		end
-	end
+	SetVehicleRadioEnabled(vehicle,false)
+	Citizen.Wait(math.random(1000,1200))
+
+	local VehicleType = GetVehicleEngineHealth(vehicle)
+
+-- local SetVehicleAlarm = SetVehicleAlarm(vehicle, true)
+-- local IsVehicleAlarmSet = 	IsVehicleAlarmSet(vehicle)
+print("im a  : "..VehicleType)
+		QBCore.Functions.Notify("Removing glass, if you break it you wont get to keep it!", "primary", length)
+		for i=0, 12 do
+			if i < 3 then 
+				Citizen.Wait(math.random(1000,1200))
+					if math.random(0,100) < 10 then 
+						Citizen.Wait(math.random(1000,1200))
+						SmashVehicleWindow(vehicle,i)
+						VehicleDoorOpen(scrapVehicle)
+					else 
+						Citizen.Wait(math.random(1000,1200))
+						RemoveVehicleWindow(vehicle,i)
+						TriggerServerEvent("qb-scrapyard:server:ItemScrapVehicle", "glass")
+					end
+				elseif i >= 4 then
+					VehicleDoorOpen(vehicle)
+				end
+			end
 	
+		
+		-- VehicleTyreBurst(vehicle)
+	
+	
+end
+
+
+function randomNumber()
+	return math.random(0,100) < 10
+end
+-- VehicleTyreBurst(scrapVehicle)
+
+function VehicleDoorOpen(scrapVehicle)
+	for i=0, 5 do
+		if math.random(0,100) < 10 then 
+			SetVehicleDoorOpen(scrapVehicle,i,false, false)
+			Citizen.Wait(math.random(1000,1200))
+		else
+			SetVehicleDoorOpen(scrapVehicle,i,false, false)
+			Citizen.Wait(math.random(1000,1200))
+			SetVehicleDoorBroken(scrapVehicle,i,true)
+		end
+
+	end
+end
+	
+function VehicleTyreBurst(scrapVehicle)
+	if 	IsVehicleTyreBurst(scrapVehicle,0) == false then
+		SetVehicleTyreBurst(scrapVehicle,0,true,1000)
+		Citizen.Wait(math.random(1000,1200))
+	elseif IsVehicleTyreBurst(scrapVehicle,1) == false then
+		Citizen.Wait(math.random(1000,1200))
+		SetVehicleTyreBurst(scrapVehicle,1,true,1000)
+	elseif IsVehicleTyreBurst(scrapVehicle,4) == false then
+		Citizen.Wait(math.random(1000,1200))
+		SetVehicleTyreBurst(scrapVehicle,4,true,1000)
+	elseif IsVehicleTyreBurst(scrapVehicle,5) == false then
+		Citizen.Wait(math.random(1000,1200))
+		SetVehicleTyreBurst(scrapVehicle,5,true,1000)	
+	end
 end
 
 function IsVehicleValid(vehicleModel)
