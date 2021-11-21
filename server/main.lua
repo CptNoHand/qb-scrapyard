@@ -82,4 +82,4 @@ function IsInList(name)
         end
     end
     return retval
-end --whats going on here?
+end
