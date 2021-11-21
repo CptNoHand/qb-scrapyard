@@ -15,19 +15,6 @@ RegisterNetEvent('qb-scrapyard:server:LoadVehicleList', function()
 end)
 
 
-RegisterServerEvent('qb-scrapyard:server:ItemScrapVehicle') --TODO --need to check this later 
-AddEventHandler('qb-scrapyard:server:ItemScrapVehicle', function(item)
-    local src = source 
-    local Player = QBCore.Functions.GetPlayer(src)
-    
-    if item == "glass" then
-        Player.Functions.AddItem("glass", math.random(1, 3))
-        TriggerClientEvent('inventory:client:ItemBox', src, QBCore.Shared.Items["glass"], 'add')
-    end
-end)
-
-RegisterServerEvent('qb-scrapyard:server:ScrapVehicle')
-AddEventHandler('qb-scrapyard:server:ScrapVehicle', function(listKey)
 QBCore.Functions.CreateCallback('qb-scrapyard:checkOwnerVehicle', function(source, cb, plate)
     local result = exports.oxmysql:scalarSync("SELECT `plate` FROM `player_vehicles` WHERE `plate` = ?",{plate})
     if result then
@@ -51,7 +38,7 @@ RegisterNetEvent('qb-scrapyard:server:ScrapVehicle', function(listKey)
         local Luck = math.random(1, 8)
         local Odd = math.random(1, 8)
         if Luck == Odd then
-            local random = math.random(6, 12)
+            local random = math.random(4, 6)
             Player.Functions.AddItem("rubber", random)
             TriggerClientEvent('inventory:client:ItemBox', src, QBCore.Shared.Items["rubber"], 'add')
 
