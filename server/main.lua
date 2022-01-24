@@ -1,13 +1,12 @@
 local QBCore = exports['qb-core']:GetCoreObject()
 
-Citizen.CreateThread(function()
+CreateThread(function()
     while true do
-        Citizen.Wait(1000)
+        Wait(1000)
         GenerateVehicleList()
-        Citizen.Wait((1000 * 60) * 60)
+        Wait((1000 * 60) * 60)
     end
 end)
-
 
 RegisterNetEvent('qb-scrapyard:server:LoadVehicleList', function()
     local src = source
@@ -29,7 +28,7 @@ end)
 RegisterServerEvent('qb-scrapyard:server:ScrapVehicle')
 AddEventHandler('qb-scrapyard:server:ScrapVehicle', function(listKey)
 QBCore.Functions.CreateCallback('qb-scrapyard:checkOwnerVehicle', function(source, cb, plate)
-    local result = exports.oxmysql:scalarSync("SELECT `plate` FROM `player_vehicles` WHERE `plate` = ?",{plate})
+    local result = MySQL.Sync.fetchScalar("SELECT `plate` FROM `player_vehicles` WHERE `plate` = ?",{plate})
     if result then
         cb(false)
     else
@@ -46,7 +45,7 @@ RegisterNetEvent('qb-scrapyard:server:ScrapVehicle', function(listKey)
             local item = Config.Items[math.random(1, #Config.Items)]
             Player.Functions.AddItem(item, math.random(25, 45))
             TriggerClientEvent('inventory:client:ItemBox', src, QBCore.Shared.Items[item], 'add')
-            Citizen.Wait(500)
+            Wait(500)
         end
         local Luck = math.random(1, 8)
         local Odd = math.random(1, 8)
