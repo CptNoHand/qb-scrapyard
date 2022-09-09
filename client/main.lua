@@ -1,5 +1,4 @@
 local QBCore = exports['qb-core']:GetCoreObject()
-local closestScrapyard = 0
 local emailSend = false
 local isBusy = false
 
@@ -8,267 +7,220 @@ RegisterNetEvent("QBCore:Client:OnPlayerLoaded", function()
 end)
 
 CreateThread(function()
-	for id, scrapyard in pairs(Config.Locations) do
-		local blip = AddBlipForCoord(Config.Locations[id]["main"].x, Config.Locations[id]["main"].y, Config.Locations[id]["main"].z)
+    for id in pairs(Config.Locations) do
+        local blip = AddBlipForCoord(Config.Locations[id]["main"].x, Config.Locations[id]["main"].y, Config.Locations[id]["main"].z)
         SetBlipSprite(blip, 380)
         SetBlipDisplay(blip, 4)
         SetBlipScale(blip, 0.7)
         SetBlipAsShortRange(blip, true)
         SetBlipColour(blip, 9)
         BeginTextCommandSetBlipName("STRING")
-        AddTextComponentSubstringPlayerName("Scrap Yard")
+        AddTextComponentSubstringPlayerName(Lang:t('text.scrapyard'))
         EndTextCommandSetBlipName(blip)
-	end
-    Wait(1000)
-    while true do
-        SetClosestScrapyard()
-        Wait(10000)
     end
 end)
 
+local listen = false
+local function KeyListener(type)
+    CreateThread(function()
+        listen = true
+        while listen do
+            if IsControlPressed(0, 38) then
+                exports['qb-core']:KeyPressed()
+            if type == 'deliver' then
+                ScrapVehicle()
+            else
+                if not IsPedInAnyVehicle(PlayerPedId()) and not emailSend then
+                    CreateListEmail()
+                end
+            end
+            break
+            end
+            Wait(0)
+        end
+    end)
+end
+
 CreateThread(function()
-	while true do
-		Wait(1)
-		if closestScrapyard ~= 0 then
-			local pos = GetEntityCoords(PlayerPedId())
-			if #(pos - vector3(Config.Locations[closestScrapyard]["deliver"].x, Config.Locations[closestScrapyard]["deliver"].y, Config.Locations[closestScrapyard]["deliver"].z)) < 10.0 then
-				if IsPedInAnyVehicle(PlayerPedId()) then
-					local vehicle = GetVehiclePedIsIn(PlayerPedId(), true)
-					if vehicle ~= 0 and vehicle ~= nil then
-						local vehpos = GetEntityCoords(vehicle)
-						if #(pos - vector3(vehpos.x, vehpos.y, vehpos.z)) < 2.5 and not isBusy then
-							DrawText3Ds(vehpos.x, vehpos.y, vehpos.z, "~g~E~w~ - Disassemble Vehicle")
-							if IsControlJustReleased(0, 38) then
-								if GetPedInVehicleSeat(vehicle, -1) == PlayerPedId() then
-									if IsVehicleValid(GetEntityModel(vehicle)) then
-										local vehiclePlate = QBCore.Functions.GetPlate(vehicle)
-										QBCore.Functions.TriggerCallback('qb-scrapyard:checkOwnerVehicle',function(retval)
-											if retval then
-												ScrapVehicle(vehicle)
-											else
-												QBCore.Functions.Notify("You can't smash a vehicle that owns it.", "error")
-											end
-										end,vehiclePlate)
-									else
-										QBCore.Functions.Notify("This Vehicle Cannot Be Scrapped.", "error")
-									end
-								else
-									QBCore.Functions.Notify("You Are Not The Driver", "error")
-								end
-							end
-						end
-					end
-				end
-			end
-			if #(pos - vector3(Config.Locations[closestScrapyard]["list"].x, Config.Locations[closestScrapyard]["list"].y, Config.Locations[closestScrapyard]["list"].z)) < 1.5 then
-				if not IsPedInAnyVehicle(PlayerPedId()) and not emailSend then
-					DrawText3Ds(Config.Locations[closestScrapyard]["list"].x, Config.Locations[closestScrapyard]["list"].y, Config.Locations[closestScrapyard]["list"].z, "~g~E~w~ - E-mail Vehicle List")
-					if IsControlJustReleased(0, 38) then
-						CreateListEmail()
-					end
-				end
-			end
-		end
-	end
+    local scrapPoly = {}
+    for i = 1,#Config.Locations,1 do
+        for k,v in pairs(Config.Locations[i]) do
+            if k ~= 'main' then
+                if Config.UseTarget then
+                    if k == 'deliver' then
+                        exports["qb-target"]:AddBoxZone("yard"..i, v.coords, v.length, v.width, {
+                            name = "yard"..i,
+                            heading = v.heading,
+                            minZ = v.coords.z - 1,
+                            maxZ = v.coords.z + 1,
+                        }, {
+                                options = {
+                                    {
+                                        action = function()
+                                            ScrapVehicle()
+                                        end,
+                                        icon = "fa fa-wrench",
+                                        label = Lang:t('text.disassemble_vehicle_target'),
+                                    }
+                                },
+                            distance = 3
+                        })
+                    else
+                        exports["qb-target"]:AddBoxZone("list"..i, v.coords, v.length, v.width, {
+                            name = "list"..i,
+                            heading = v.heading,
+                            minZ = v.coords.z - 1,
+                            maxZ = v.coords.z + 1,
+                        }, {
+                            options = {
+                                {
+                                    action = function()
+                                        if not IsPedInAnyVehicle(PlayerPedId()) and not emailSend then
+                                            CreateListEmail()
+                                        end
+                                    end,
+                                    icon = "fa fa-envelop",
+                                    label = Lang:t('text.email_list_target'),
+                                }
+                            },
+                            distance = 1.5
+                        })
+                    end
+                else
+                    scrapPoly[#scrapPoly+1] = BoxZone:Create(vector3(v.coords.x, v.coords.y, v.coords.z), v.length, v.width, {
+                        heading = v.heading,
+                        name = k..i,
+                        debugPoly = false,
+                        minZ = v.coords.z - 1,
+                        maxZ = v.coords.z + 1,
+                    })
+                    local scrapCombo = ComboZone:Create(scrapPoly, {name = "scrapPoly"})
+                    scrapCombo:onPlayerInOut(function(isPointInside)
+                        if isPointInside then
+                            if not isBusy then
+                                if k == 'deliver' then
+                                    exports['qb-core']:DrawText(Lang:t('text.disassemble_vehicle'),'left')
+                                else
+                                    exports['qb-core']:DrawText(Lang:t('text.email_list'),'left')
+                                end
+                                KeyListener(k)
+                            end
+                        else
+                            listen = false
+                            exports['qb-core']:HideText()
+                        end
+                    end)
+                end
+            end
+        end
+    end
 end)
 
 RegisterNetEvent('qb-scapyard:client:setNewVehicles', function(vehicleList)
-	Config.CurrentVehicles = vehicleList
+    Config.CurrentVehicles = vehicleList
 end)
 
 function CreateListEmail()
-	if Config.CurrentVehicles ~= nil and next(Config.CurrentVehicles) ~= nil then
-		emailSend = true
-		local vehicleList = ""
-		for k, v in pairs(Config.CurrentVehicles) do
-			if Config.CurrentVehicles[k] ~= nil then
-				local vehicleInfo = QBCore.Shared.Vehicles[v]
-				if vehicleInfo ~= nil then
-					vehicleList = vehicleList  .. vehicleInfo["brand"] .. " " .. vehicleInfo["name"] .. "<br />"
-				end
-			end
-		end
-		SetTimeout(math.random(15000, 20000), function()
-			emailSend = false
-			TriggerServerEvent('qb-phone:server:sendNewMail', {
-				sender = "Turner’s Auto Wrecking",
-				subject = "Vehicle List",
-				message = "You Can Only Demolish A Number Of Vehicles.<br />You Can Keep Everything You Demolish For Yourself As Long As You Dont Bother Me.<br /><br /><strong>Vehicle List:</strong><br />".. vehicleList,
-				button = {}
-			})
-		end)
-	else
-		QBCore.Functions.Notify("You Are Not Allowed To Demolish Vehicles Now", "error")
-	end
+    if Config.CurrentVehicles ~= nil and next(Config.CurrentVehicles) ~= nil then
+        emailSend = true
+        local vehicleList = ""
+        for k, v in pairs(Config.CurrentVehicles) do
+            if Config.CurrentVehicles[k] ~= nil then
+                local vehicleInfo = QBCore.Shared.Vehicles[v]
+                if vehicleInfo ~= nil then
+                    vehicleList = vehicleList  .. vehicleInfo["brand"] .. " " .. vehicleInfo["name"] .. "<br />"
+                end
+            end
+        end
+        SetTimeout(math.random(15000, 20000), function()
+            emailSend = false
+            TriggerServerEvent('qb-phone:server:sendNewMail', {
+                sender = Lang:t('email.sender'),
+                subject = Lang:t('email.subject'),
+                message = Lang:t('email.message').. vehicleList,
+                button = {}
+            })
+        end)
+    else
+        QBCore.Functions.Notify(Lang:t('error.demolish_vehicle'), "error")
+    end
 end
 
-function ScrapVehicle(vehicle)
-	isBusy = true
-	local retval --[[ boolean ]] =
-	IsVehicleTyreBurst(
-		vehicle --[[ Vehicle ]], 
-		0 --[[ integer ]], 
-		false --[[ boolean ]]
-	)
-
-	local retval1 --[[ boolean ]] =
-	IsVehicleTyreBurst(
-		vehicle --[[ Vehicle ]], 
-		0 --[[ integer ]], 
-		true --[[ boolean ]]
-	)
-
-	local retval2 --[[ boolean ]] =
-	IsVehicleTyreBurst(
-		vehicle --[[ Vehicle ]], 
-		0 --[[ integer ]]
-	)
-
-	print(retval)
-	print(retval1)
-	print(retval2)
-	local scrapTime = math.random(32000, 42000)
-
-	ScrapVehicleAnim(scrapTime)
-	QBCore.Functions.Progressbar("scrap_vehicle", "Demolish Vehicle", scrapTime, false, true, {
-		disableMovement = true,
-		disableCarMovement = true,
-		disableMouse = false,
-		disableCombat = true,
-	}, {}, {}, {}, function() -- Done
-		StopAnimTask(PlayerPedId(), "mp_car_bomb", "car_bomb_mechanic", 1.0)
-		-- TriggerServerEvent("qb-scrapyard:server:ScrapVehicle", GetVehticleKey(GetEntityModel(vehicle)))
-		SetEntityAsMissionEntity(vehicle, true, true)
-		DeleteVehicle(vehicle)
-		isBusy = false
-	end, function() -- Cancel
-		StopAnimTask(PlayerPedId(), "mp_car_bomb", "car_bomb_mechanic", 1.0)
-		isBusy = false
-		QBCore.Functions.Notify("Canceled", "error")
-	end)
-
-	SetVehicleEngineOn(vehicle,false,true)
-	SetVehicleRadioEnabled(vehicle,false)
-	Citizen.Wait(math.random(1000,1200))
-
-	local VehicleType = GetVehicleEngineHealth(vehicle)
-
--- local SetVehicleAlarm = SetVehicleAlarm(vehicle, true)
--- local IsVehicleAlarmSet = 	IsVehicleAlarmSet(vehicle)
-print("im a  : "..VehicleType)
-		QBCore.Functions.Notify("Removing glass, if you break it you wont get to keep it!", "primary", length)
-		for i=0, 12 do
-			if i < 3 then 
-				Citizen.Wait(math.random(1000,1200))
-					if math.random(0,100) < 10 then 
-						Citizen.Wait(math.random(1000,1200))
-						SmashVehicleWindow(vehicle,i)
-						VehicleDoorOpen(scrapVehicle)
-					else 
-						Citizen.Wait(math.random(1000,1200))
-						RemoveVehicleWindow(vehicle,i)
-						TriggerServerEvent("qb-scrapyard:server:ItemScrapVehicle", "glass")
-					end
-				elseif i >= 4 then
-					VehicleDoorOpen(vehicle)
-				end
-			end
-	
-		
-		-- VehicleTyreBurst(vehicle)
-	
-	
-end
-
-
-function randomNumber()
-	return math.random(0,100) < 10
-end
--- VehicleTyreBurst(scrapVehicle)
-
-function VehicleDoorOpen(scrapVehicle)
-	for i=0, 5 do
-		if math.random(0,100) < 10 then 
-			SetVehicleDoorOpen(scrapVehicle,i,false, false)
-			Citizen.Wait(math.random(1000,1200))
-		else
-			SetVehicleDoorOpen(scrapVehicle,i,false, false)
-			Citizen.Wait(math.random(1000,1200))
-			SetVehicleDoorBroken(scrapVehicle,i,true)
-		end
-
-	end
-end
-	
-function VehicleTyreBurst(scrapVehicle)
-	if 	IsVehicleTyreBurst(scrapVehicle,0) == false then
-		SetVehicleTyreBurst(scrapVehicle,0,true,1000)
-		Citizen.Wait(math.random(1000,1200))
-	elseif IsVehicleTyreBurst(scrapVehicle,1) == false then
-		Citizen.Wait(math.random(1000,1200))
-		SetVehicleTyreBurst(scrapVehicle,1,true,1000)
-	elseif IsVehicleTyreBurst(scrapVehicle,4) == false then
-		Citizen.Wait(math.random(1000,1200))
-		SetVehicleTyreBurst(scrapVehicle,4,true,1000)
-	elseif IsVehicleTyreBurst(scrapVehicle,5) == false then
-		Citizen.Wait(math.random(1000,1200))
-		SetVehicleTyreBurst(scrapVehicle,5,true,1000)	
-	end
+function ScrapVehicle()
+    local vehicle = GetVehiclePedIsIn(PlayerPedId(), true)
+    if vehicle ~= 0 and vehicle ~= nil then
+        if not isBusy then
+            if GetPedInVehicleSeat(vehicle, -1) == PlayerPedId() then
+                if IsVehicleValid(GetEntityModel(vehicle)) then
+                    local vehiclePlate = QBCore.Functions.GetPlate(vehicle)
+                    QBCore.Functions.TriggerCallback('qb-scrapyard:checkOwnerVehicle',function(retval)
+                        if retval then
+                            isBusy = true
+                            local scrapTime = math.random(28000, 37000)
+                            ScrapVehicleAnim(scrapTime)
+                            QBCore.Functions.Progressbar("scrap_vehicle", Lang:t('text.demolish_vehicle'), scrapTime, false, true, {
+                                disableMovement = true,
+                                disableCarMovement = true,
+                                disableMouse = false,
+                                disableCombat = true,
+                            }, {}, {}, {}, function() -- Done
+                                TriggerServerEvent("qb-scrapyard:server:ScrapVehicle", GetVehicleKey(GetEntityModel(vehicle)))
+                                SetEntityAsMissionEntity(vehicle, true, true)
+                                DeleteVehicle(vehicle)
+                                isBusy = false
+                            end, function() -- Cancel
+                                isBusy = false
+                                QBCore.Functions.Notify(Lang:t('error.canceled'), "error")
+                            end)
+                        else
+                            QBCore.Functions.Notify(Lang:t('error.smash_own'), "error")
+                        end
+                    end,vehiclePlate)
+                else
+                    QBCore.Functions.Notify(Lang:t('error.cannot_scrap'), "error")
+                end
+            else
+                QBCore.Functions.Notify(Lang:t('error.not_driver'), "error")
+            end
+        end
+    end
 end
 
 function IsVehicleValid(vehicleModel)
-	local retval = false
-	if Config.CurrentVehicles ~= nil and next(Config.CurrentVehicles) ~= nil then
-		for k, v in pairs(Config.CurrentVehicles) do
-			if Config.CurrentVehicles[k] ~= nil and GetHashKey(Config.CurrentVehicles[k]) == vehicleModel then
-				retval = true
-			end
-		end
-	end
-	return retval
+    local retval = false
+    if Config.CurrentVehicles ~= nil and next(Config.CurrentVehicles) ~= nil then
+        for k in pairs(Config.CurrentVehicles) do
+            if Config.CurrentVehicles[k] ~= nil and GetHashKey(Config.CurrentVehicles[k]) == vehicleModel then
+                retval = true
+            end
+        end
+    end
+    return retval
 end
 
 function GetVehicleKey(vehicleModel)
-	local retval = 0
-	if Config.CurrentVehicles ~= nil and next(Config.CurrentVehicles) ~= nil then
-		for k, v in pairs(Config.CurrentVehicles) do
-			if GetHashKey(Config.CurrentVehicles[k]) == vehicleModel then
-				retval = k
-			end
-		end
-	end
-	return retval
-end
-
-function SetClosestScrapyard()
-	local pos = GetEntityCoords(PlayerPedId(), true)
-    local current = nil
-    local dist = nil
-	for id, scrapyard in pairs(Config.Locations) do
-		if current ~= nil then
-			if #(pos - vector3(Config.Locations[id]["main"].x, Config.Locations[id]["main"].y, Config.Locations[id]["main"].z)) < dist then
-				current = id
-				dist = #(pos - vector3(Config.Locations[id]["main"].x, Config.Locations[id]["main"].y, Config.Locations[id]["main"].z))
-			end
-		else
-			dist = #(pos - vector3(Config.Locations[id]["main"].x, Config.Locations[id]["main"].y, Config.Locations[id]["main"].z))
-			current = id
-		end
-	end
-	closestScrapyard = current
+    local retval = 0
+    if Config.CurrentVehicles ~= nil and next(Config.CurrentVehicles) ~= nil then
+        for k in pairs(Config.CurrentVehicles) do
+            if GetHashKey(Config.CurrentVehicles[k]) == vehicleModel then
+                retval = k
+            end
+        end
+    end
+    return retval
 end
 
 function ScrapVehicleAnim(time)
     time = (time / 1000)
     loadAnimDict("mp_car_bomb")
     TaskPlayAnim(PlayerPedId(), "mp_car_bomb", "car_bomb_mechanic" ,3.0, 3.0, -1, 16, 0, false, false, false)
-    openingDoor = true
+    local openingDoor = true
     CreateThread(function()
         while openingDoor do
             TaskPlayAnim(PlayerPedId(), "mp_car_bomb", "car_bomb_mechanic", 3.0, 3.0, -1, 16, 0, 0, 0, 0)
             Wait(2000)
-			time = time - 2
-            if time <= 0 then
+            time = time - 2
+            if time <= 0 or not isBusy then
                 openingDoor = false
                 StopAnimTask(PlayerPedId(), "mp_car_bomb", "car_bomb_mechanic", 1.0)
             end
@@ -281,19 +233,4 @@ function loadAnimDict(dict)
         RequestAnimDict(dict)
         Wait(5)
     end
-end
-
-function DrawText3Ds(x, y, z, text)
-	SetTextScale(0.35, 0.35)
-    SetTextFont(4)
-    SetTextProportional(1)
-    SetTextColour(255, 255, 255, 215)
-    SetTextEntry("STRING")
-    SetTextCentre(true)
-    AddTextComponentString(text)
-    SetDrawOrigin(x,y,z, 0)
-    DrawText(0.0, 0.0)
-    local factor = (string.len(text)) / 370
-    DrawRect(0.0, 0.0+0.0125, 0.017+ factor, 0.03, 0, 0, 0, 75)
-    ClearDrawOrigin()
 end
